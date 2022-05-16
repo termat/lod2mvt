@@ -15,6 +15,7 @@ import java.awt.dnd.DropTargetDropEvent;
 import java.awt.dnd.DropTargetListener;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
+import java.awt.geom.Rectangle2D;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
@@ -333,7 +334,9 @@ public class Lod2MvtApp {
 					Map<String,List<Geometry>> tmp=GMLToJsonUtil.gmlToJsonBldg(f,attr);
 					for(String key : tmp.keySet()) {
 						List<Geometry> geom=tmp.get(key);
-						MVTBuilder builder=new MVTBuilder(geom,GMLToJsonUtil.getBounds(geom),key);
+						Rectangle2D rect=GMLToJsonUtil.getBounds(geom);
+						if(rect==null)continue;
+						MVTBuilder builder=new MVTBuilder(geom,rect,key);
 						builder.createMVTs(minZoom, maxZoom, outDir);
 					}
 				} catch (CityGMLBuilderException | CityGMLReadException | ParseException e) {

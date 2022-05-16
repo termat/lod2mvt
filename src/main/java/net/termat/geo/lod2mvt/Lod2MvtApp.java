@@ -335,7 +335,7 @@ public class Lod2MvtApp {
 					for(String key : tmp.keySet()) {
 						List<Geometry> geom=tmp.get(key);
 						Rectangle2D rect=GMLToJsonUtil.getBounds(geom);
-						if(rect==null)continue;
+						if(rect==null)continue;	
 						MVTBuilder builder=new MVTBuilder(geom,rect,key);
 						builder.createMVTs(minZoom, maxZoom, outDir);
 					}

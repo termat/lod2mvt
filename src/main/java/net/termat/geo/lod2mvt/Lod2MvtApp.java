@@ -344,7 +344,7 @@ public class Lod2MvtApp {
 				}
 			}
 		}
-		System.out.println("- completed ---------------------");
+		System.out.println("- completed ----------------------");
 	}
 	
 	public static void main(String[] args) {

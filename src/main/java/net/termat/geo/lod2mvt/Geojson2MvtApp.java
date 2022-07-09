@@ -16,17 +16,20 @@ import java.awt.dnd.DropTargetListener;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.awt.geom.Rectangle2D;
+import java.io.BufferedReader;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.FileReader;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.PrintStream;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 import javax.swing.BorderFactory;
 import javax.swing.JButton;
-import javax.swing.JCheckBox;
 import javax.swing.JComboBox;
 import javax.swing.JFileChooser;
 import javax.swing.JFrame;
@@ -45,21 +48,28 @@ import javax.swing.text.BadLocationException;
 import javax.swing.text.Document;
 import javax.swing.text.Element;
 
-import org.citygml4j.builder.jaxb.CityGMLBuilderException;
-import org.citygml4j.xml.io.reader.CityGMLReadException;
 import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.io.ParseException;
+import org.locationtech.jts.io.geojson.GeoJsonReader;
 
-public class Lod2MvtApp {
+import com.google.gson.JsonObject;
+import com.mapbox.geojson.Feature;
+import com.mapbox.geojson.FeatureCollection;
+import com.mapbox.geojson.MultiPolygon;
+import com.mapbox.geojson.Point;
+import com.mapbox.geojson.Polygon;
+
+public class Geojson2MvtApp {
 	private JFrame frame;
 	private JFileChooser ch;
 	private DropJTextField src,dst;
 	private JComboBox<Integer> zoom01,zoom02;
-	private JCheckBox check;
+	private JTextField check;
 	private JButton exec;
 	private Thread runner;
+	private static GeoJsonReader gr=new GeoJsonReader();
 	
-	public Lod2MvtApp() {
+	public Geojson2MvtApp() {
 		frame=new JFrame();
 		frame.setTitle("Lod2Mvt");
 		frame.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
@@ -92,7 +102,7 @@ public class Lod2MvtApp {
 		JPanel pup=new JPanel(new GridLayout(4,1));
 		frame.getContentPane().add(pup,BorderLayout.NORTH);
 		JPanel p1=new JPanel(new BorderLayout());
-		p1.setBorder(BorderFactory.createTitledBorder(BorderFactory.createLineBorder(Color.DARK_GRAY), "■入力先（CityGML）"));
+		p1.setBorder(BorderFactory.createTitledBorder(BorderFactory.createLineBorder(Color.DARK_GRAY), "■入力先（Geojson）"));
 		src=new DropJTextField();
 		src.setBorder(BorderFactory.createLoweredBevelBorder());
 		src.setEditable(false);
@@ -146,9 +156,9 @@ public class Lod2MvtApp {
 		panel02.add(zoom01);
 		zoom02.setBorder(BorderFactory.createTitledBorder(BorderFactory.createLineBorder(Color.DARK_GRAY), "最小ズームレベル"));
 		panel02.add(zoom02);
-		check=new JCheckBox("設定する",true);
+		check=new JTextField("NULL");
 		JPanel tmp=new JPanel(new BorderLayout());
-		tmp.setBorder(BorderFactory.createTitledBorder(BorderFactory.createLineBorder(Color.DARK_GRAY), "属性"));
+		tmp.setBorder(BorderFactory.createTitledBorder(BorderFactory.createLineBorder(Color.DARK_GRAY), "レイヤー名"));
 		tmp.add(check,BorderLayout.CENTER);
 		panel02.add(tmp);
 		
@@ -168,7 +178,7 @@ public class Lod2MvtApp {
 							Runnable r=new Runnable() {
 								public void run() {
 									try {
-										buildMvtFromGml(inDir,outDir,minZoom,maxZoom,check.isSelected());
+										buildMvtFromJson(inDir,outDir,minZoom,maxZoom,check.getText());
 									} catch (ParseException e1) {
 										e1.printStackTrace();
 									}
@@ -317,11 +327,10 @@ public class Lod2MvtApp {
 				};
 				new DropTarget(this, DnDConstants.ACTION_COPY, dtl, true);
 		}
-		
 	}
 	
-	public void buildMvtFromGml(File gmlDir,File outDir,int minZoom,int maxZoom,boolean attr) throws ParseException {
-		System.out.println("- gml -> mvt ---------------------");
+	public void buildMvtFromJson(File gmlDir,File outDir,int minZoom,int maxZoom,String layerName) throws ParseException {
+		System.out.println("- geojson -> mvt ---------------------");
 		int n=gmlDir.listFiles().length;
 		int iter=0;
 		for(File f : gmlDir.listFiles()) {
@@ -329,10 +338,10 @@ public class Lod2MvtApp {
 			iter++;
 			if(f.isDirectory())continue;
 			String name=f.getName();
-			if(name.endsWith(".gml")) {
+			if(name.endsWith(".geojson")) {
 				try {
 					System.out.println(f.getName()+" ("+Integer.toString(iter)+"/"+Integer.toString(n)+")");
-					Map<String,List<Geometry>> tmp=GMLToJsonUtil.gmlToJsonBldg(f,attr);
+					Map<String,List<Geometry>> tmp=loadGeojson(f,layerName);
 					for(String key : tmp.keySet()) {
 						List<Geometry> geom=tmp.get(key);
 						Rectangle2D rect=GMLToJsonUtil.getBounds(geom);
@@ -340,7 +349,7 @@ public class Lod2MvtApp {
 						MVTBuilder builder=new MVTBuilder(geom,rect,key);
 						builder.createMVTs(minZoom, maxZoom, outDir);
 					}
-				} catch (CityGMLBuilderException | CityGMLReadException | ParseException e) {
+				} catch (ParseException | IOException e) {
 					e.printStackTrace();
 				}
 			}
@@ -348,8 +357,93 @@ public class Lod2MvtApp {
 		System.out.println("- completed ----------------------");
 	}
 	
+	private Map<String,List<Geometry>> loadGeojson(File f,String layer) throws IOException, ParseException{
+		Map<String,List<Geometry>> ret=new HashMap<>();
+		FeatureCollection fc=FeatureCollection.fromJson(readJson(f));
+		List<Geometry> list=new ArrayList<>();
+		for(Feature fe : fc.features()) {
+			com.mapbox.geojson.Geometry mg=fe.geometry();
+			if(mg instanceof MultiPolygon) {
+				MultiPolygon mp=(MultiPolygon)mg;
+				JsonObject jo=fe.properties();
+				for(com.mapbox.geojson.Polygon cp : mp.polygons()) {
+					Geometry g=toJTS(cp);
+					g.setUserData(jo.deepCopy());
+					list.add(g);
+				}
+			}else {
+				Geometry g=toJTS(mg);
+				g.setUserData(fe.properties());
+				list.add(g);
+			}
+		}
+		ret.put(layer, list);
+		return ret;
+	}
+	
+	public static Geometry toJTS(com.mapbox.geojson.Geometry g) throws ParseException {
+		if(g instanceof Polygon) {
+			Polygon p=(Polygon)g;
+			if(!isAntieClockWise(p.coordinates().get(0))) {
+				List<List<Point>> nt=counter(p.coordinates());
+				g=Polygon.fromLngLats(nt);
+			}
+		}
+		org.locationtech.jts.geom.Geometry geom=gr.read(g.toJson());
+		return geom;
+	}
+	
+	private static List<List<Point>> counter(List<List<Point>> li){
+		List<List<Point>> ret=new ArrayList<>();
+		for(List<Point> p : li) {
+			ret.add(counterList(p));
+		}
+		return ret;
+	}
+	
+	private static List<Point> counterList(List<Point> l){
+		List<Point> ret=new ArrayList<>();
+		while(l.size()>0) {
+			ret.add(l.remove(l.size()-1));
+		}
+		return ret;
+	}
+	
+	private static boolean isAntieClockWise(List<Point> p) {
+		Point p1=p.get(0);
+		Point p2=p.get(1);
+		Point p3=p.get(2);
+		double[] v1=new double[] {p2.longitude()-p1.longitude(),p2.latitude()-p1.latitude(),0};
+		double[] v2=new double[] {p3.longitude()-p1.longitude(),p3.latitude()-p1.latitude(),0};
+		double[] pd=crossProduct(v1,v2);
+		if(pd[2]<0) {
+			return false;
+		}else {
+			return true;
+		}
+	}
+	
+	private static double[] crossProduct(double[] a, double[] b) {  
+	    double[] entries = new double[] {
+	          a[1] * b[2] - a[2] * b[1],
+	          a[2] * b[0] - a[0] * b[2],
+	          a[0] * b[1] - a[1] * b[0]};
+	    return entries;
+	}
+	
+	private static String readJson(File f) throws IOException {
+		StringBuffer buf=new StringBuffer();
+		String line=null;
+		BufferedReader br=new BufferedReader(new FileReader(f));
+		while((line=br.readLine())!=null) {
+			buf.append(line);
+		}
+		br.close();
+		return buf.toString();
+	}
+	
 	public static void main(String[] args) {
-		Lod2MvtApp app=new Lod2MvtApp();
+		Geojson2MvtApp app=new Geojson2MvtApp();
 		app.frame.setVisible(true);
 	}
 }

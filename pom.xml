@@ -20,6 +20,11 @@
 			<version>1.16.1</version>
 		</dependency>
 		<dependency>
+    		<groupId>com.mapbox.mapboxsdk</groupId>
+    		<artifactId>mapbox-sdk-geojson</artifactId>
+    		<version>5.8.0</version>
+		</dependency>
+		<dependency>
 			<groupId>com.wdtinc</groupId>
 			<artifactId>mapbox-vector-tile</artifactId>
     		<version>3.1.0</version>

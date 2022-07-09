@@ -17,6 +17,7 @@ import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.geom.GeometryFactory;
 import org.locationtech.jts.io.ParseException;
 
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.protobuf.ByteString;
 import com.wdtinc.mapbox_vector_tile.VectorTile;
@@ -100,11 +101,16 @@ public class MVTBuilder {
 						if(layerProps.keyIndex(layerName)==null) {
 							 featureBuilder.addTags(layerProps.addKey(s));
 						}
-						String val=o.get(s).getAsString();
+						JsonElement je=o.get(s);
 						try {
-							 featureBuilder.addTags(layerProps.addValue(Double.parseDouble(val)));
-						}catch(Exception e) {
-							 featureBuilder.addTags(layerProps.addValue(val));
+							String val=je.getAsString();
+							try {
+								featureBuilder.addTags(layerProps.addValue(Double.parseDouble(val)));
+							}catch(NumberFormatException e) {
+								featureBuilder.addTags(layerProps.addValue(val));
+							}
+						}catch(java.lang.UnsupportedOperationException ue) {
+							System.out.println("NULL="+s);
 						}
 					}
 				}

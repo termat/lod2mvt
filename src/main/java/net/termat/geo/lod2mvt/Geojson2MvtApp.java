@@ -154,7 +154,7 @@ public class Geojson2MvtApp {
 		
 		zoom01.setBorder(BorderFactory.createTitledBorder(BorderFactory.createLineBorder(Color.DARK_GRAY), "最小ズームレベル"));
 		panel02.add(zoom01);
-		zoom02.setBorder(BorderFactory.createTitledBorder(BorderFactory.createLineBorder(Color.DARK_GRAY), "最小ズームレベル"));
+		zoom02.setBorder(BorderFactory.createTitledBorder(BorderFactory.createLineBorder(Color.DARK_GRAY), "最大ズームレベル"));
 		panel02.add(zoom02);
 		check=new JTextField("NULL");
 		JPanel tmp=new JPanel(new BorderLayout());
@@ -338,7 +338,7 @@ public class Geojson2MvtApp {
 			iter++;
 			if(f.isDirectory())continue;
 			String name=f.getName();
-			if(name.endsWith(".geojson")) {
+			if(name.endsWith(".geojson")||name.endsWith(".json")) {
 				try {
 					System.out.println(f.getName()+" ("+Integer.toString(iter)+"/"+Integer.toString(n)+")");
 					Map<String,List<Geometry>> tmp=loadGeojson(f,layerName);

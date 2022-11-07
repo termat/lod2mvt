@@ -144,7 +144,7 @@ public class Lod2MvtApp {
 		
 		zoom01.setBorder(BorderFactory.createTitledBorder(BorderFactory.createLineBorder(Color.DARK_GRAY), "最小ズームレベル"));
 		panel02.add(zoom01);
-		zoom02.setBorder(BorderFactory.createTitledBorder(BorderFactory.createLineBorder(Color.DARK_GRAY), "最小ズームレベル"));
+		zoom02.setBorder(BorderFactory.createTitledBorder(BorderFactory.createLineBorder(Color.DARK_GRAY), "最大ズームレベル"));
 		panel02.add(zoom02);
 		check=new JCheckBox("設定する",true);
 		JPanel tmp=new JPanel(new BorderLayout());
@@ -332,7 +332,7 @@ public class Lod2MvtApp {
 			if(name.endsWith(".gml")) {
 				try {
 					System.out.println(f.getName()+" ("+Integer.toString(iter)+"/"+Integer.toString(n)+")");
-					Map<String,List<Geometry>> tmp=GMLToJsonUtil.gmlToJsonBldg(f,attr);
+					Map<String,List<Geometry>> tmp=GMLToJsonUtil.gmlToGeoJson(f,attr);
 					for(String key : tmp.keySet()) {
 						List<Geometry> geom=tmp.get(key);
 						Rectangle2D rect=GMLToJsonUtil.getBounds(geom);

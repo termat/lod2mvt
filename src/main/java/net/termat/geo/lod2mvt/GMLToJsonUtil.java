@@ -22,9 +22,12 @@ import org.citygml4j.model.citygml.core.AbstractCityObject;
 import org.citygml4j.model.citygml.core.CityModel;
 import org.citygml4j.model.citygml.core.CityObjectMember;
 import org.citygml4j.model.citygml.generics.AbstractGenericAttribute;
+import org.citygml4j.model.citygml.generics.GenericAttributeSet;
 import org.citygml4j.model.citygml.generics.IntAttribute;
 import org.citygml4j.model.citygml.generics.MeasureAttribute;
 import org.citygml4j.model.citygml.generics.StringAttribute;
+import org.citygml4j.model.citygml.landuse.LandUse;
+import org.citygml4j.model.citygml.transportation.Road;
 import org.citygml4j.model.citygml.waterbody.WaterBody;
 import org.citygml4j.model.gml.geometry.aggregates.MultiSurface;
 import org.citygml4j.model.gml.geometry.aggregates.MultiSurfaceProperty;
@@ -56,7 +59,7 @@ public class GMLToJsonUtil {
 	 * @throws CityGMLReadException
 	 * @throws ParseException
 	 */
-	public static Map<String,List<Geometry>> gmlToJsonBldg(File f,boolean attr) throws CityGMLBuilderException, CityGMLReadException, ParseException{
+	public static Map<String,List<Geometry>> gmlToGeoJson(File f,boolean attr) throws CityGMLBuilderException, CityGMLReadException, ParseException{
 		Map<String,List<Geometry>> ret=new HashMap<>();
 		CityGMLContext ctx = CityGMLContext.getInstance();
 		CityGMLBuilder builder = ctx.createCityGMLBuilder();
@@ -101,6 +104,26 @@ public class GMLToJsonUtil {
 						}
 						WaterBody b=(WaterBody)cityObject;
 						createWaterBody(b,geom,attr);
+					}else if(cityObject.getCityGMLClass() == CityGMLClass.ROAD) {
+						List<Geometry> geom=null;
+						if(ret.containsKey(layer)) {
+							geom=ret.get(layer);
+						}else {
+							geom=new ArrayList<>();
+							ret.put(layer,geom);
+						}
+						Road b=(Road)cityObject;
+						createRoad(b,geom,attr);
+					}else if(cityObject.getCityGMLClass() == CityGMLClass.LAND_USE) {
+						List<Geometry> geom=null;
+						if(ret.containsKey(layer)) {
+							geom=ret.get(layer);
+						}else {
+							geom=new ArrayList<>();
+							ret.put(layer,geom);
+						}
+						LandUse b=(LandUse)cityObject;
+						createLandUse(b,geom,attr);
 					}
 				}
 			}
@@ -165,18 +188,24 @@ public class GMLToJsonUtil {
 	
 	private static JsonObject getAttributes(List<AbstractGenericAttribute> list) {
 		JsonObject prop=new JsonObject();
-        for(AbstractGenericAttribute at : list){
-            if(at instanceof StringAttribute){
-                StringAttribute st=(StringAttribute)at;
-                prop.addProperty(st.getName(), st.getValue());
-            }else if(at instanceof MeasureAttribute){
-                MeasureAttribute st=(MeasureAttribute)at;
-                prop.addProperty(st.getName(), st.getValue().getValue());
-            }else if(at instanceof IntAttribute){
-                IntAttribute st=(IntAttribute)at;
-                prop.addProperty(st.getName(), st.getValue());
-            }
-        }
+		for(AbstractGenericAttribute at : list){
+			if(at instanceof StringAttribute){
+				StringAttribute st=(StringAttribute)at;
+				prop.addProperty(st.getName(), st.getValue());
+			}else if(at instanceof MeasureAttribute){
+				MeasureAttribute st=(MeasureAttribute)at;
+				prop.addProperty(st.getName(), st.getValue().getValue());
+			}else if(at instanceof IntAttribute){
+				IntAttribute st=(IntAttribute)at;
+				prop.addProperty(st.getName(), st.getValue());
+			}else if(at instanceof GenericAttributeSet){
+				GenericAttributeSet att=(GenericAttributeSet)at;
+				JsonObject obj=getAttributes(att.getGenericAttribute());
+				for(String str : obj.keySet()) {
+					prop.addProperty(str, obj.get(str).getAsString());
+				};
+			}
+		}
 		return prop;
 	}
 
@@ -308,15 +337,19 @@ public class GMLToJsonUtil {
     	JsonObject prop=null;
     	if(attr)prop=getAttributes(b.getGenericAttribute());
 		for(org.locationtech.jts.geom.Polygon pl : ll) {
+			if(pl.getArea()<=1e-10)continue;
 			JsonObject obj=null;
 			if(attr) {
 				obj=prop.deepCopy();
 			}else {
 				obj=new JsonObject();
 			}
-			obj.addProperty("height", b.getMeasuredHeight().getValue());
-			pl.setUserData(obj);
-			geom.add(pl);
+			double dh=b.getMeasuredHeight().getValue();
+			if(dh>=3.0) {
+				obj.addProperty("height", b.getMeasuredHeight().getValue());
+				pl.setUserData(obj);
+				geom.add(pl);
+			}
 		}
 	}
 
@@ -344,9 +377,12 @@ public class GMLToJsonUtil {
     				}else {
     					obj=new JsonObject();
     				}
-        	        obj.addProperty("height", getVal(pl.getExteriorRing()));
-        	        pl.setUserData(obj);
-        	        geom.add(pl);
+    				double dh=getVal(pl.getExteriorRing());
+    				if(dh>=3.0) {
+            	        obj.addProperty("height",dh);
+            	        pl.setUserData(obj);
+            	        geom.add(pl);
+    				}
     			}
     		}else if(as instanceof OuterFloorSurface) {
     			OuterFloorSurface rs=(OuterFloorSurface)as;
@@ -359,9 +395,12 @@ public class GMLToJsonUtil {
     				}else {
     					obj=new JsonObject();
     				}
-        	        obj.addProperty("height", getVal(pl.getExteriorRing()));
-        	        pl.setUserData(obj);
-        	        geom.add(pl);
+    				double dh=getVal(pl.getExteriorRing());
+    				if(dh>=3.0) {
+            	        obj.addProperty("height",dh);
+            	        pl.setUserData(obj);
+            	        geom.add(pl);
+    				}
     			}
     		}
     	}
@@ -410,6 +449,47 @@ public class GMLToJsonUtil {
 	        geom.add(pl);
 		}
     }
+    
+    private static void createRoad(Road b,List<Geometry> geom,boolean attr){
+    	MultiSurfaceProperty mm=b.getLod1MultiSurface();
+    	MultiSurface ms=mm.getMultiSurface();
+    	List<SurfaceProperty> spl=ms.getSurfaceMember();
+    	double low=getLowest(spl);
+    	List<org.locationtech.jts.geom.Polygon> ll=createGeometry(spl,low);
+    	JsonObject prop=null;
+    	if(attr)prop=getAttributes(b.getGenericAttribute());
+		for(org.locationtech.jts.geom.Polygon pl : ll) {
+			JsonObject obj=null;
+			if(attr) {
+				obj=prop.deepCopy();
+			}else {
+				obj=new JsonObject();
+			}
+	        obj.addProperty("height", getVal(pl.getExteriorRing()));
+	        pl.setUserData(obj);
+	        geom.add(pl);
+		}
+    }
+
+    private static void createLandUse(LandUse b,List<Geometry> geom,boolean attr){
+    	MultiSurfaceProperty mm=b.getLod0MultiSurface();
+    	MultiSurface ms=mm.getMultiSurface();
+    	List<SurfaceProperty> spl=ms.getSurfaceMember();
+    	double low=getLowest(spl);
+    	List<org.locationtech.jts.geom.Polygon> ll=createGeometry(spl,low);
+    	JsonObject prop=null;
+    	if(attr)prop=getAttributes(b.getGenericAttribute());
+		for(org.locationtech.jts.geom.Polygon pl : ll) {
+			JsonObject obj=null;
+			if(attr) {
+				obj=prop.deepCopy();
+			}else {
+				obj=new JsonObject();
+			}
+	        pl.setUserData(obj);
+	        geom.add(pl);
+		}
+    }
 	
 	/**
 	 * 全てのgeometryを含む矩形領域を取得
@@ -427,9 +507,31 @@ public class GMLToJsonUtil {
 				}else {
 					ret.add(c.getX(), c.getY());
 				}
-				
 			}
 		}
 		return ret;
 	}
+	
+	
+	public static void main(String[] args) {
+		File fs=new File("E:\\Data\\PLATEAU\\27100_osaka-shi_2020_citygml_4_op\\27100_osaka-shi_2020_citygml_4_op\\udx\\luse");
+		for(File f : fs.listFiles()) {
+			Map<String, List<Geometry>> tmp;
+			try {
+				tmp = GMLToJsonUtil.gmlToGeoJson(f,true);
+				for(String key : tmp.keySet()) {
+					List<Geometry> geom=tmp.get(key);
+					Rectangle2D rect=GMLToJsonUtil.getBounds(geom);
+					if(rect==null)continue;	
+					for(Geometry g : geom) {
+						System.out.println(g.getNumPoints()+"/"+g.getUserData());
+					}
+				}
+			} catch (CityGMLBuilderException | CityGMLReadException | ParseException e) {
+				// TODO 自動生成された catch ブロック
+				e.printStackTrace();
+			}
+		}
+	}
+	
 }

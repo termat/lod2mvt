@@ -1,12 +1,16 @@
 # *lod2mvt*
-## これは何ですか？
+## 概要
 - CityGML／Geojsonからベクトルタイルを生成するツールです。
 - CityGMLの解釈は[citygml4j](https://github.com/citygml4j)を使用してます。
 - ベクトルタイルの生成は[MapBox Vector Tile - Java](https://github.com/wdtinc/mapbox-vector-tile-java)を使用してます。
 - LOD2モデルのベクトルタイル化はindigo-labさんの[plateau-lod2-mvt](https://github.com/indigo-lab/plateau-lod2-mvt)の方法を用いています。
 - なお、CityGMLはi-UR1.5に改定に適合している必要があります。
+- Lod2MvtApp.jarとGeojson2MvtApp.jarが実行形式のファイルになります。
 
-## 概要
+## 動作環境
+- 多分、Java8でも動きますが、一応、Java11以降推奨です。
+
+## 説明
 ### LOD2MVT
 - CityGMLからベクトルタイルを生成
 - 入力先のCityGMLが入ったフォルダを指定

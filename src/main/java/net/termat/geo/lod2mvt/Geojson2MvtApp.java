@@ -71,7 +71,7 @@ public class Geojson2MvtApp {
 	
 	public Geojson2MvtApp() {
 		frame=new JFrame();
-		frame.setTitle("Lod2Mvt");
+		frame.setTitle("Geojson2Mvt");
 		frame.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
 		if(!System.getProperty("os.name").toLowerCase().startsWith("mac")) {
 			try {

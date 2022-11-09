@@ -26,3 +26,8 @@
 - データは設定した「レイヤー名」で出力されます。
 
 ![LOD2MVT](/images/geojson2mvt.png)
+<<<<<<< HEAD
+=======
+
+
+>>>>>>> origin/master

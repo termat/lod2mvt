@@ -1,12 +1,15 @@
 package net.termat.geo.lod2mvt;
 
+import java.awt.Color;
 import java.awt.Point;
 import java.awt.geom.Point2D;
 import java.awt.geom.Rectangle2D;
+import java.awt.image.BufferedImage;
 import java.util.ArrayList;
 import java.util.List;
 
 public class TileMeshUtil {
+	public static int NA=new Color(128,0,0).getRGB();
 	private static final double L=85.05112877980659;
 
 	/**
@@ -84,5 +87,55 @@ public class TileMeshUtil {
 
 	private static double atanh(double v){
 		return 0.5*Math.log((1.0+v)/(1.0-v));
+	}
+
+	/**
+	 * RGB（int)を標高に変換するメソッド
+	 *
+	 * @param  color RGB:int
+	 * @return 標高:double
+	 */
+	public static float getZ(int color){
+		color=(color << 8) >> 8;
+		if(color==8388608||color==-8388608){
+			return Float.NaN;
+		}else if(color<8388608){
+			return color * 0.01f;
+		}else{
+			return (color-16777216)*0.01f;
+		}
+	}
+
+	/**
+	 * 標高をRGB（INT）に変換するメソッド
+	 *
+	 * @param  z 標高 :double
+	 * @return RGB:int
+	 */
+	public static int getRGB(float z){
+		if(Float.isNaN(z)){
+			return NA;
+		}else if(z<-83886||z>83886) {
+			return NA;
+		}else{
+			int i=(int)Math.round(z*100);
+			if(z<0)	i=i+0x1000000;
+			int r=Math.max(0,Math.min(i >> 16,255));
+			int g=Math.max(0,Math.min(i-(r << 16) >> 8,255));
+			int b=Math.max(0,Math.min(i-((r << 16)+(g << 8)),255));
+			return new Color(r,g,b).getRGB();
+		}
+	}
+	
+	public static float[][] getDM(BufferedImage dem){
+		int w=dem.getWidth();
+		int h=dem.getHeight();
+		float[][] ret=new float[w][h];
+		for(int i=0;i<w;i++) {
+			for(int j=0;j<h;j++) {
+				ret[i][j]=getZ(dem.getRGB(i, j));
+			}
+		}
+		return ret;
 	}
 }

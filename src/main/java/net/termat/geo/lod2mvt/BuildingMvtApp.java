@@ -336,6 +336,19 @@ public class BuildingMvtApp {
 				}
 			}
 		}
+		
+		/*
+		List<java.awt.Point> p=TileMeshUtil.getTileList(area.getBounds2D(), 13);
+		Rectangle2D rr=null;
+		for(java.awt.Point p2 : p) {
+			if(rr==null) {
+				rr=TileMeshUtil.getTileBounds(13, p2.x, p2.y).getBounds2D();
+			}else {
+				rr=rr.createUnion(TileMeshUtil.getTileBounds(13, p2.x, p2.y).getBounds2D());
+			}
+		}
+		return TileMeshUtil.getTileList(rr, zoom);
+		*/
 		return TileMeshUtil.getTileList(area.getBounds2D(), zoom);
 	}
 	
@@ -410,7 +423,9 @@ public class BuildingMvtApp {
 					list2.add(new java.awt.Point(p.x*2+1,p.y*2));
 					list2.add(new java.awt.Point(p.x*2,p.y*2+1));
 					list2.add(new java.awt.Point(p.x*2+1,p.y*2+1));
-				}catch(java.io.FileNotFoundException e) {}
+				}catch(Exception e) {
+					System.err.println(e);
+				}
 			}
 			list.clear();
 			list.addAll(list2);
